@@ -11,11 +11,11 @@ import (
 )
 
 type BasicUserInfo struct {
-	Name     string
-	Email    string
-	Login    string
-	Company  string
-	Role     string
+	Name    string
+	Email   string
+	Login   string
+	Company string
+	Role    string
 }
 
 type SocialConnector interface {
@@ -51,6 +51,7 @@ func NewOAuthService() {
 			ApiUrl:         sec.Key("api_url").String(),
 			Enabled:        sec.Key("enabled").MustBool(),
 			AllowedDomains: sec.Key("allowed_domains").Strings(" "),
+			HostedDomain:   sec.Key("hosted_domain").String(),
 			AllowSignup:    sec.Key("allow_sign_up").MustBool(),
 			Name:           sec.Key("name").MustString(name),
 			TlsClientCert:  sec.Key("tls_client_cert").String(),
@@ -90,10 +91,11 @@ func NewOAuthService() {
 		// Google.
 		if name == "google" {
 			SocialMap["google"] = &SocialGoogle{
-				Config:               &config,
-				allowedDomains:       info.AllowedDomains,
-				apiUrl:               info.ApiUrl,
-				allowSignup:          info.AllowSignup,
+				Config:         &config,
+				allowedDomains: info.AllowedDomains,
+				hostedDomain:   info.HostedDomain,
+				apiUrl:         info.ApiUrl,
+				allowSignup:    info.AllowSignup,
 			}
 		}
 
@@ -113,12 +115,12 @@ func NewOAuthService() {
 			config = oauth2.Config{
 				ClientID:     info.ClientId,
 				ClientSecret: info.ClientSecret,
-				Endpoint:     oauth2.Endpoint{
-					AuthURL:      setting.GrafanaNetUrl + "/oauth2/authorize",
-					TokenURL:     setting.GrafanaNetUrl + "/api/oauth2/token",
+				Endpoint: oauth2.Endpoint{
+					AuthURL:  setting.GrafanaNetUrl + "/oauth2/authorize",
+					TokenURL: setting.GrafanaNetUrl + "/api/oauth2/token",
 				},
-				RedirectURL:  strings.TrimSuffix(setting.AppUrl, "/") + SocialBaseUrl + name,
-				Scopes:       info.Scopes,
+				RedirectURL: strings.TrimSuffix(setting.AppUrl, "/") + SocialBaseUrl + name,
+				Scopes:      info.Scopes,
 			}
 
 			SocialMap["grafananet"] = &SocialGrafanaNet{

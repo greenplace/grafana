@@ -53,7 +53,11 @@ func OAuthLogin(ctx *middleware.Context) {
 	if code == "" {
 		state := GenStateString()
 		ctx.Session.Set(middleware.SESS_KEY_OAUTH_STATE, state)
-		ctx.Redirect(connect.AuthCodeURL(state, oauth2.AccessTypeOnline))
+		if setting.OAuthService.OAuthInfos[name].HostedDomain == "" {
+			ctx.Redirect(connect.AuthCodeURL(state, oauth2.AccessTypeOnline))
+		} else {
+			ctx.Redirect(connect.AuthCodeURL(state, oauth2.SetParam("hd", setting.OAuthService.OAuthInfos[name].HostedDomain), oauth2.AccessTypeOnline))
+		}
 		return
 	}
 
@@ -86,13 +90,13 @@ func OAuthLogin(ctx *middleware.Context) {
 		tr := &http.Transport{
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: true,
-				Certificates: []tls.Certificate{cert},
-				RootCAs: caCertPool,
+				Certificates:       []tls.Certificate{cert},
+				RootCAs:            caCertPool,
 			},
 		}
 		sslcli := &http.Client{Transport: tr}
 
-		oauthCtx = context.TODO()
+		oauthCtx = context.Background()
 		oauthCtx = context.WithValue(oauthCtx, oauth2.HTTPClient, sslcli)
 	}
 
@@ -102,6 +106,8 @@ func OAuthLogin(ctx *middleware.Context) {
 		ctx.Handle(500, "login.OAuthLogin(NewTransportWithCode)", err)
 		return
 	}
+	// token.TokenType was defaulting to "bearer", which is out of spec, so we explicitly set to "Bearer"
+	token.TokenType = "Bearer"
 
 	ctx.Logger.Debug("OAuthLogin Got token")
 

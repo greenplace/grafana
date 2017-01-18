@@ -28,31 +28,25 @@ func NewResultHandler() *DefaultResultHandler {
 }
 
 func (handler *DefaultResultHandler) Handle(evalContext *EvalContext) error {
-	oldState := evalContext.Rule.State
-
 	executionError := ""
 	annotationData := simplejson.New()
+
+	if evalContext.Firing {
+		annotationData = simplejson.NewFromAny(evalContext.EvalMatches)
+	}
+
 	if evalContext.Error != nil {
-		handler.log.Error("Alert Rule Result Error", "ruleId", evalContext.Rule.Id, "error", evalContext.Error)
-		evalContext.Rule.State = m.AlertStateExecError
 		executionError = evalContext.Error.Error()
 		annotationData.Set("errorMessage", executionError)
-	} else if evalContext.Firing {
-		evalContext.Rule.State = m.AlertStateAlerting
-		annotationData = simplejson.NewFromAny(evalContext.EvalMatches)
-	} else {
-		if evalContext.NoDataFound {
-			if evalContext.Rule.NoDataState != m.NoDataKeepState {
-				evalContext.Rule.State = evalContext.Rule.NoDataState.ToAlertState()
-			}
-		} else {
-			evalContext.Rule.State = m.AlertStateOK
-		}
+	}
+
+	if evalContext.NoDataFound {
+		annotationData.Set("no_data", true)
 	}
 
 	countStateResult(evalContext.Rule.State)
-	if handler.shouldUpdateAlertState(evalContext, oldState) {
-		handler.log.Info("New state change", "alertId", evalContext.Rule.Id, "newState", evalContext.Rule.State, "oldState", oldState)
+	if evalContext.ShouldUpdateAlertState() {
+		handler.log.Info("New state change", "alertId", evalContext.Rule.Id, "newState", evalContext.Rule.State, "prev state", evalContext.PrevAlertState)
 
 		cmd := &m.SetAlertStateCommand{
 			AlertId:  evalContext.Rule.Id,
@@ -63,6 +57,10 @@ func (handler *DefaultResultHandler) Handle(evalContext *EvalContext) error {
 		}
 
 		if err := bus.Dispatch(cmd); err != nil {
+			if err == m.ErrCannotChangeStateOnPausedAlert {
+				handler.log.Error("Cannot change state on alert thats pause", "error", err)
+				return err
+			}
 			handler.log.Error("Failed to save state", "error", err)
 		}
 
@@ -76,7 +74,7 @@ func (handler *DefaultResultHandler) Handle(evalContext *EvalContext) error {
 			Title:       evalContext.Rule.Name,
 			Text:        evalContext.GetStateModel().Text,
 			NewState:    string(evalContext.Rule.State),
-			PrevState:   string(oldState),
+			PrevState:   string(evalContext.PrevAlertState),
 			Epoch:       time.Now().Unix(),
 			Data:        annotationData,
 		}
@@ -86,18 +84,18 @@ func (handler *DefaultResultHandler) Handle(evalContext *EvalContext) error {
 			handler.log.Error("Failed to save annotation for new alert state", "error", err)
 		}
 
-		handler.notifier.Notify(evalContext)
+		if evalContext.ShouldSendNotification() {
+			handler.notifier.Notify(evalContext)
+		}
 	}
 
 	return nil
 }
 
-func (handler *DefaultResultHandler) shouldUpdateAlertState(evalContext *EvalContext, oldState m.AlertStateType) bool {
-	return evalContext.Rule.State != oldState
-}
-
 func countStateResult(state m.AlertStateType) {
 	switch state {
+	case m.AlertStatePending:
+		metrics.M_Alerting_Result_State_Pending.Inc(1)
 	case m.AlertStateAlerting:
 		metrics.M_Alerting_Result_State_Alerting.Inc(1)
 	case m.AlertStateOK:
@@ -106,7 +104,5 @@ func countStateResult(state m.AlertStateType) {
 		metrics.M_Alerting_Result_State_Paused.Inc(1)
 	case m.AlertStateNoData:
 		metrics.M_Alerting_Result_State_NoData.Inc(1)
-	case m.AlertStateExecError:
-		metrics.M_Alerting_Result_State_ExecError.Inc(1)
 	}
 }

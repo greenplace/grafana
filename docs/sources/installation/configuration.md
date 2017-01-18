@@ -144,6 +144,10 @@ Grafana needs a database to store users and dashboards (and other
 things). By default it is configured to use `sqlite3` which is an
 embedded database (included in the main Grafana binary).
 
+### url
+Use either URL or or the other fields below to configure the database
+Example: `mysql://user:secret@host:port/database`
+
 ### type
 
 Either `mysql`, `postgres` or `sqlite3`, it's your choice.
@@ -170,7 +174,7 @@ The database user (not applicable for `sqlite3`).
 
 ### password
 
-The database user's password (not applicable for `sqlite3`).
+The database user's password (not applicable for `sqlite3`). If the password contains `#` or `;` you have to wrap it with trippel quotes. Ex `"""#password;"""`
 
 ### ssl_mode
 
@@ -244,7 +248,10 @@ organization to be created for that new user.
 
 The role new users will be assigned for the main organization (if the
 above setting is set to true).  Defaults to `Viewer`, other valid
-options are `Admin` and `Editor` and `Read-Only Editor`.
+options are `Admin` and `Editor` and `Read Only Editor`. e.g. :
+
+`auto_assign_org_role = Read Only Editor`
+
 
 <hr>
 
@@ -289,6 +296,7 @@ example:
 
     [auth.github]
     enabled = true
+    allow_sign_up = true
     client_id = YOUR_GITHUB_APP_CLIENT_ID
     client_secret = YOUR_GITHUB_APP_CLIENT_SECRET
     scopes = user:email
@@ -323,7 +331,7 @@ Grafana instance. For example:
     team_ids = 150,300
     auth_url = https://github.com/login/oauth/authorize
     token_url = https://github.com/login/oauth/access_token
-    allow_sign_up = false
+    allow_sign_up = true
 
 ### allowed_organizations
 
@@ -339,7 +347,7 @@ your Grafana instance. For example
     scopes = user:email,read:org
     auth_url = https://github.com/login/oauth/authorize
     token_url = https://github.com/login/oauth/access_token
-    allow_sign_up = false
+    allow_sign_up = true
     # space-delimited organization names
     allowed_organizations = github google
 
@@ -367,7 +375,7 @@ Secret. Specify these in the Grafana configuration file. For example:
     auth_url = https://accounts.google.com/o/oauth2/auth
     token_url = https://accounts.google.com/o/oauth2/token
     allowed_domains = mycompany.com mycompany.org
-    allow_sign_up = false
+    allow_sign_up = true
 
 Restart the Grafana back-end. You should now see a Google login button
 on the login page. You can now login or sign up with your Google
@@ -394,7 +402,7 @@ browser to access Grafana, but with the prefix path of `/login/generic_oauth`.
     token_url =
     api_url =
     allowed_domains = mycompany.com mycompany.org
-    allow_sign_up = false
+    allow_sign_up = true
 
 Set api_url to the resource that returns basic user info.
 
@@ -413,7 +421,7 @@ Set to `true` to enable LDAP integration (default: `false`)
 ### config_file
 Path to the LDAP specific configuration file (default: `/etc/grafana/ldap.toml`)
 
-> For details on LDAP Configuration, go to the [LDAP Integration](ldap.md) page.
+> For details on LDAP Configuration, go to the [LDAP Integration]({{< relref "ldap.md" >}}) page.
 
 <hr>
 
@@ -579,3 +587,37 @@ Enabled to automatically remove expired snapshots
 
 ### remove snapshots after 90 days
 Time to live for snapshots.
+
+## [external_image_storage]
+These options control how images should be made public so they can be shared on services like slack.
+
+### provider
+You can choose between (s3, webdav). If left empty Grafana will ignore the upload action.
+
+## [external_image_storage.s3]
+
+### bucket_url
+bucket url for s3. ex http://grafana.s3.amazonaws.com/
+
+### access_key
+access key. ex AAAAAAAAAAAAAAAAAAAA
+
+### secret_key
+secret key. ex AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+## [external_image_storage.webdav]
+
+### url
+Url to where Grafana will send PUT request with images
+
+### username
+basic auth username
+
+### password
+basic auth password
+
+## [alerting]
+
+### execute_alerts = true
+
+Makes it possible to turn off alert rule execution.

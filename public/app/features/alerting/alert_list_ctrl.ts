@@ -15,7 +15,6 @@ export class AlertListCtrl {
     {text: 'OK', value: 'ok'},
     {text: 'Alerting', value: 'alerting'},
     {text: 'No Data', value: 'no_data'},
-    {text: 'Execution Error', value: 'execution_error'},
   ];
 
   filters = {
@@ -38,6 +37,9 @@ export class AlertListCtrl {
       this.alerts = _.map(result, alert => {
         alert.stateModel = alertDef.getStateDisplayModel(alert.state);
         alert.newStateDateAgo = moment(alert.newStateDate).fromNow().replace(" ago", "");
+        if (alert.evalData && alert.evalData.no_data) {
+          alert.no_data = true;
+        }
         return alert;
       });
     });
